@@ -5,6 +5,7 @@
 ###### Directory ignores ######
 *Sandbox*
 student_help/
+other/
 
 ###### Python ignores ######
 *pyc
