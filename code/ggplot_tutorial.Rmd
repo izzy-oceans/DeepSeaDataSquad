@@ -1,0 +1,259 @@
+---
+title: "ggplot_tutorial"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#setwd('~/Documents/PhD/DSDS/')
+```
+
+This tutorial walks through some of the main features and functionality of the ggplot2 package. The data used in this exercise can be found at https://github.com/mhasoba/TheMulQuaBio/tree/master/content. The dataset contains information on Consumer-Resource (e.g., Predator-Prey) body mass ratios taken from the Ecological Archives of the ESA (Barnes et al. 2008, Ecology 89:881).
+
+```{r message=FALSE}
+# Load packages
+library(plyr) 
+library(dplyr)
+library(gridExtra) # For adding multiple plots on same space
+library(ggplot2)
+library(ggExtra)
+theme_set(theme_bw()) # sets all ggplots to have default black and white theme 
+```
+
+```{r}
+# Load data
+MyDF <- read.csv('../data/EcolArchives-E089-51-D1.csv')
+
+# Explore structure of data
+str(MyDF)
+```
+
+## Scatter plots
+
+ggplot works with dataframes and all the data you need to make a plot should typically be contained in a single dataframe (there are workarounds to include multiple dataframes in a single plot). 
+
+Start by initializing a ggplot and then add layers which dictates the type of plot, annotations, labels and more. 
+
+```{r}
+p <- ggplot(MyDF, aes(x = Predator.mass, y = Prey.mass)) #initialize a ggplot using MyDF
+p
+```
+As you can see ggplot creates an empty plot. Let's add a scatter plot layer to our initialized plot, `p`, so we can see our data.
+
+```{r}
+p <- p + geom_point()
+p
+```
+
+This plot isn't very meaningful - body sizes across species tend to be log-normally distributed, with a lot of small species and a few large ones. Let's take the log of the data which allows you to inspect the body size range in a meaningful (logarithmic) scale and reveals the true relationship.
+
+You can take the log in two ways - either by making a new column in the data frame (`MyDF$log.Predator.mass <- log(MyDF$Predator.mass`) or directly when initializing a ggplot:
+
+```{r}
+p <- ggplot(MyDF, aes(x = log(Predator.mass), y = log(Prey.mass))) +
+  geom_point() 
+# Add some axis labels 
+p <- p + xlab('Log Predator Mass (g)') +
+  ylab('Log Prey Mass (g)')
+
+p
+```
+## Marginal plots
+You can add marginal plots using the `ggExtra` package.
+
+```{r}
+p <- ggplot(MyDF, aes(x = log(Predator.mass), y = log(Prey.mass))) +
+  geom_point() 
+# Add some axis labels 
+p <- p + xlab('Log Predator Mass (g)') +
+  ylab('Log Prey Mass (g)')
+
+plot1 <- ggMarginal(p, type="histogram") # add marginal plot
+plot2 <- ggMarginal(p, type="boxplot") 
+plot3 <- ggMarginal(p, type="density")
+
+# combine plots in a grid
+grid.arrange( plot1, plot2, plot3, ncol=3)
+```
+
+Let's take a deeper look at the data and see if there are relationships between categories such as location or type of feeding interaction. To do this we change the type of these columns to factor so that we can use them as grouping variables during plotting.
+
+```{r}
+MyDF$Type.of.feeding.interaction <- as.factor(MyDF$Type.of.feeding.interaction)
+MyDF$Location <- as.factor(MyDF$Location)
+```
+
+```{r}
+# Colour points by feeding interaction
+p <- ggplot(MyDF, aes(x = log(Predator.mass), y = log(Prey.mass), colour = Type.of.feeding.interaction)) +
+  geom_point() 
+# Edit labels
+p <- p + labs(x = 'Log Predator Mass (g)',
+          y = 'Log Prey Mass (g)', 
+          colour = 'Type of feeding interaction') #changes legend title 
+
+p
+```
+Alternatively you can use facets to view these as separate plots:
+
+```{r}
+# Colour points by feeding interaction
+p <- ggplot(MyDF, aes(x = log(Predator.mass), y = log(Prey.mass))) +
+  geom_point()  +
+  facet_wrap(Type.of.feeding.interaction~.) 
+  
+p
+```
+You can also do multiple facets:
+
+```{r fig.width=12, fig.height=12}
+p <- ggplot(MyDF, aes(x = log(Predator.mass), y = log(Prey.mass))) +
+  facet_wrap( .~ Type.of.feeding.interaction + Location, scales = 'free') + #scales='free' allows the scale to vary in each plot
+  geom_point() 
+p
+
+# or view as a grid 
+q <- ggplot(MyDF, aes(x = log(Predator.mass), y = log(Prey.mass))) +
+  facet_grid(Type.of.feeding.interaction ~ Location, scales = 'free') + 
+  geom_point() 
+q
+```
+
+## Regression lines
+
+```{r warning=FALSE, fig.height=12, fig.width=12}
+# Create color blind friendly palette
+cbbPalette <- c( "#56B4E9", "#009E73", "#0072B2", "#D55E00", "#CC79A7", "#000000", "#E69F00", "#F0E442")
+
+
+p <- ggplot(MyDF, aes(x = log(Prey.mass), y = log(Predator.mass), group = Predator.lifestage, colour = Predator.lifestage)) +
+  geom_point(aes(shape = Predator.lifestage)) + # make point shape based on Predator lifestage
+  geom_smooth(method = 'lm', linetype="dashed") + # fit a regression line and make it dashed
+  stat_smooth(method="lm", se=TRUE, fill=NA, # fit a 3rd order polynomial 
+                formula=y ~ poly(x, 3, raw=TRUE))  +
+  facet_wrap(.~Type.of.feeding.interaction, nrow = 5, scales = 'free') +
+  scale_color_manual(values = cbbPalette) # manually set the colours 
+
+p
+```
+
+## Boxplots
+
+```{r}
+p <- ggplot(MyDF, aes(x = Type.of.feeding.interaction, y = log(Predator.mass))) +
+  geom_boxplot() +
+  ggtitle("Predator mass by feeding interaction type")
+p
+
+```
+
+## Histograms 
+Let's explore the distributions of the predator and prey data. Histograms can be a good way to do this. 
+
+```{r}
+pred_hist <- ggplot(MyDF, aes(x = log(Predator.mass))) +
+  geom_histogram() + 
+  ggtitle('Predator')
+
+prey_hist <- ggplot(MyDF, aes(x = log(Prey.mass))) +
+  geom_histogram() + 
+  ggtitle('Prey')
+
+
+grid.arrange(pred_hist, prey_hist, nrow=2) # view plots together 
+```
+
+Even better lets look at these distributions overlaid on the same plot.
+
+```{r}
+hist <- ggplot(MyDF, aes(x = log(Predator.mass))) + #set default aesthetic to be Predator
+  geom_histogram(bins = 20, alpha=0.6) +  # alpha sets the transparency; bins sets the number of bars in a histogram
+  geom_histogram(aes(x = log(Prey.mass)), alpha=0.3) # change aesthetic of second histogram to Prey data
+
+hist
+
+# Change colors and manually add a legend
+cols <- c("Predator" = "lightblue", "Prey" = "pink")
+
+h <- ggplot(MyDF, aes(x = log(Predator.mass), fill='Predator')) +
+  geom_histogram(bins = 20, alpha=0.6, color = 'black') + 
+  geom_histogram(aes(x = log(Prey.mass), fill='Prey'), bins = 30,alpha=0.3, color='black') +
+  labs(x = 'Log mass (g)',
+    fill = "") +
+  scale_color_manual(values = cols)
+
+h
+```
+
+## Bar plots 
+Let's look at a different dataset to plot some bar charts. This is a dummy dataset containing data about fish, coral and invertebrate observations across 5 different sites. At each site, observations were replicated 3 times and the precision of observations were calculated.  
+
+
+```{r}
+bar_data <- read.csv('../data/bar_chart_data.csv') %>% select(-X) #remove 'X' column 
+
+str(bar_data)
+```
+First let's calculate some summary data by finding the mean and standard error for precision at each site and taxa so that we can plot error bars on our bar charts.
+
+```{r}
+# Calculate mean precision, s.d. and s.e for each site and taxa
+data <- ddply(bar_data, c("site", "taxa"), summarise, 
+               N    = length(x = Precision),
+               mean = mean(Precision),
+               sd   = sd(Precision),
+               se   = sd / sqrt(N))
+
+head(data)
+```
+Let's start with a basic bar plot.
+```{r}
+p <- ggplot(data, aes(x=site, y=mean, fill=taxa)) + # set up ggplot
+  geom_bar(position=position_dodge(), stat="identity")  # position = position_dodge() sets bars to be side by side (leave out if oyu want a stacked bar). stat='identity' tells ggplot to use the raw data
+  
+p 
+```
+Now adding error bars.
+```{r}
+# Add the error bars to the plot
+p <- p + geom_errorbar(aes(ymin=mean-se, ymax=mean+se), 
+                width=.2,                    # Width of the error bars
+                position=position_dodge(.9)) + 
+  ggtitle('Plot p')
+  
+p  
+```
+Let's customize the plot! 
+```{r}
+# Change the axis labels and titles
+q <- p + scale_x_discrete(name = "Site", breaks = c("A", "B", "C", "D", "E"), labels = c("S1", "S2", "S3", "S4", "S5")) +
+  ylab('Precision') +
+  ggtitle('Plot q')
+
+plt_final <- q + scale_fill_manual(name="Taxa Observations", # Legend title
+                    values=c("#56B4E9", "#999999", "#009E73"), # change colors of bars
+                    breaks=c("Coral", "fish", "invertebrate"), # link the new colors to the taxa names 
+                    labels=c("Hard Coral", "Fish", "Invertebrates")) + # rename the taxa for the legend 
+  ggtitle('Plot plt_final')
+
+# View plots together
+grid.arrange(q, plt_final, nrow=2)  
+```
+
+## Saving plots
+To save a plot use `ggsave()`.
+
+```{r}
+ggsave(filename = 'bar_plot.pdf',
+       plot = plt_final,
+       width = 20,  # optional image dimensions 
+       height=13, 
+       units = "cm"
+       )
+```
+
+## ggplot Resources
+* http://www.sthda.com/english/wiki/ggplot2-essentials
+* http://www.cookbook-r.com/Graphs/
+* http://r-statistics.co/Complete-Ggplot2-Tutorial-Part1-With-R-Code.html
+
