@@ -1,7 +1,9 @@
 *~ 
 *.tmp
 
+###### Directory ignores ######
 *Sandbox*
+student_help/
 
 ###### Python ignores ######
 *pyc
