@@ -5,7 +5,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-#setwd('~/Documents/PhD/DSDS/')
+setwd('~/Documents/PhD/DeepSeaDataSquad/other/ggplot_tutorial/')
 ```
 
 This tutorial walks through some of the main features and functionality of the ggplot2 package. The data used in this exercise can be found at https://github.com/mhasoba/TheMulQuaBio/tree/master/content. The dataset contains information on Consumer-Resource (e.g., Predator-Prey) body mass ratios taken from the Ecological Archives of the ESA (Barnes et al. 2008, Ecology 89:881).
